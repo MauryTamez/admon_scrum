@@ -1395,6 +1395,13 @@ class ScrumPrioritizationActivity:
         if not self.active:
             return
         
+        if not self.show_result and not self.feedback_active:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if hasattr(self, 'manual_close_rect') and self.manual_close_rect.collidepoint(event.pos):
+                    self.deactivate()
+                    return
+
+        
         if self.show_result and hasattr(self, 'result_button_rect'):
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.result_button_rect.collidepoint(event.pos):
@@ -1447,9 +1454,16 @@ class ScrumPrioritizationActivity:
             self.show_result = True
         else:
             self.result_message = (
-                "El orden no es correcto.\n\n"
-                "Recuerda que la historia con mayor prioridad (valor 1) debe ir en la parte superior.\n"
-                "Organiza las tarjetas de forma descendente según su importancia."
+                "Historias de usuario críticas para el objetivo principal del Sprint deben ir primero."
+                "En este caso, el objetivo es lanzar una versión funcional que permita agendar citas. Por eso, la funcionalidad de agendar una cita (H1) es la más importante. Sin eso, el sistema no cumple su propósito."
+
+                "Las mejoras de experiencia o conveniencia tienen prioridad media."
+                "Filtrar doctores (H3) y notificar cambios (H2) son útiles, pero no indispensables para una primera versión funcional. Van después de lo esencial."
+
+                "Funcionalidades de consulta histórica o visuales suelen tener baja prioridad al inicio."
+                "El historial (H4) y la personalización visual (H5) no bloquean el uso básico del sistema. Pueden agregarse en iteraciones posteriores."
+
+                "“Al priorizar, pregúntate: ¿Qué pasa si esta historia no se implementa? Si la respuesta es que el usuario no podrá usar el producto, entonces es prioridad alta."
             )
             self.result_color = RED
             self.feedback_active = True  # Mostrar el recuadro de error
@@ -1590,15 +1604,20 @@ class ScrumPrioritizationActivity:
             #btn_text_rect = btn_text.get_rect(center=self.result_button_rect.center)
             #screen.blit(btn_text, btn_text_rect)
         if self.feedback_active:
-            modal_width = 480
-            modal_height = 150
+            modal_width = 500
+            font = pygame.font.Font(None, 20)
+             # Ajustar altura dinámica según las líneas de retroalimentación
+            lines = self._wrap_text(self.result_message, font, modal_width - 40)
+            line_height = 25
+            modal_height = 80 + len(lines) * line_height
+            
             modal_x = (WINDOW_WIDTH - modal_width) // 2
             modal_y = (WINDOW_HEIGHT - modal_height) // 2
 
             pygame.draw.rect(screen, (255, 240, 240), (modal_x, modal_y, modal_width, modal_height), border_radius=12)
             pygame.draw.rect(screen, (180, 40, 40), (modal_x, modal_y, modal_width, modal_height), 3, border_radius=12)
 
-            font = pygame.font.Font(None, 22)
+            
             lines = self._wrap_text(self.result_message, font, modal_width - 40)
             for i, line in enumerate(lines):
                 text_surf = font.render(line, True, (80, 20, 20))
@@ -1618,6 +1637,22 @@ class ScrumPrioritizationActivity:
             btn_text = font.render("Cerrar", True, WHITE)
             btn_text_rect = btn_text.get_rect(center=self.feedback_button_rect.center)
             screen.blit(btn_text, btn_text_rect)
+        # Mostrar botón de cerrar solo si no se está mostrando feedback ni resultado
+        if not self.show_result and not self.feedback_active:
+            close_btn_width = 90
+            close_btn_height = 30
+            close_btn_x = panel_x + panel_width - 100
+            close_btn_y = panel_y + 1
+
+            self.manual_close_rect = pygame.Rect(close_btn_x, close_btn_y, close_btn_width, close_btn_height)
+
+            pygame.draw.rect(screen, (100, 100, 100), self.manual_close_rect, border_radius=10)
+            pygame.draw.rect(screen, WHITE, self.manual_close_rect, 2, border_radius=10)
+
+            close_font = pygame.font.Font(None, 20)
+            close_text = close_font.render("Cerrar", True, WHITE)
+            close_text_rect = close_text.get_rect(center=self.manual_close_rect.center)
+            screen.blit(close_text, close_text_rect)
 
 
     def _wrap_text(self, text, font, max_width):
@@ -1799,6 +1834,21 @@ class ScrumRolesRoom(Room):
 
         return self.player_near_info
     
+    def _wrap_text(self, text, font, max_width):
+        words = text.split()
+        lines = []
+        current = []
+        for word in words:
+            test = " ".join(current + [word])
+            if font.size(test)[0] <= max_width:
+                current.append(word)
+            else:
+                lines.append(" ".join(current))
+                current = [word]
+        if current:
+            lines.append(" ".join(current))
+        return lines
+    
     def render(self, screen):
         if self.scaled_bg:
             screen.blit(self.scaled_bg, (self.bg_x_offset, self.bg_y_offset))
@@ -1909,19 +1959,23 @@ class ScrumRolesRoom(Room):
             pygame.draw.rect(screen, (30, 100, 160), (modal_x, modal_y, modal_width, modal_height), 3, border_radius=12)
 
             font = pygame.font.Font(None, 22)
-            info_lines = [
-                "Scrum utiliza roles, artefactos y eventos para facilitar el trabajo colaborativo.",
-                "Explorar los objetos de la sala te permitirá conocer mejor cómo funciona.",
-                "¡Sigue interactuando para aprender más!"
-            ]
-            for i, line in enumerate(info_lines):
+            # Texto largo que se adapta al ancho
+            info_text = (
+                "¡Hola! Soy el Product Owner del proyecto ‘DocOnline’, una plataforma web para reservar citas médicas. Nuestro objetivo es lanzar una versión mínima funcional lo antes posible para que los pacientes puedan agendar y consultar sus citas desde casa. Todo lo que no afecte directamente esta experiencia puede esperar."
+            )
+
+            # Usa el método de envoltura de texto ya existente
+            wrapped_info = self._wrap_text(info_text, font, modal_width - 40)
+            for i, line in enumerate(wrapped_info):
                 text_surf = font.render(line, True, (20, 40, 60))
-                text_rect = text_surf.get_rect(center=(modal_x + modal_width // 2, modal_y + 40 + i * 30))
+                text_rect = text_surf.get_rect(center=(modal_x + modal_width // 2, modal_y + 40 + i * 25))
                 screen.blit(text_surf, text_rect)
 
             self.info_close_button = pygame.Rect(modal_x + modal_width - 110, modal_y + modal_height - 50, 90, 30)
             pygame.draw.rect(screen, (30, 100, 160), self.info_close_button, border_radius=8)
             screen.blit(font.render("Cerrar", True, WHITE), self.info_close_button.move(20, 5))
+    
+
 
     
     def update(self):

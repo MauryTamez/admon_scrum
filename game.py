@@ -74,7 +74,8 @@ class Game:
 
         # Actualizar el juego principal
         elif self.state == STATE_GAME:
-            self.player.update()
+            if not getattr(self.room_manager.get_current_room(), 'showing_info', False):
+                self.player.update()
             current_room = self.room_manager.get_current_room()
             self.player.current_room = current_room
             current_room.update()
@@ -91,7 +92,9 @@ class Game:
                  current_room.check_info_area(self.player.rect)
 
             # Verificar si se ha presionado la tecla de espacio para interactuar
-            if self.player.is_interacting():
+            # Bloquear interacción si se está mostrando el recuadro informativo
+            if self.player.is_interacting() and not getattr(current_room, 'showing_info', False):
+
                 # Verificar si el jugador está en un área de transición
                 in_transition_area = False
                 if hasattr(current_room, 'check_transition_area'):
